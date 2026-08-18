@@ -6,3 +6,5 @@ pinecone
 python-dotenv
 Pillow
 opencv-python-headless
+torch
+matplotlib

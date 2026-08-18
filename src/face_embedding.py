@@ -15,6 +15,7 @@ from typing import Optional
 import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
+from .angle_detection import detect_face_angle
 
 EMBEDDING_DIMENSION = 512
 MODEL_PACK = "buffalo_l"
@@ -75,5 +76,8 @@ def generate_face_embedding(image_path: str) -> np.ndarray:
             reverse=True,
         )
         print(f"Warning: {path} contains {len(faces)} faces; using the largest one.")
+    
+    # get face angle
+    angle = detect_face_angle(faces[0])
 
-    return _normalize(faces[0].embedding)
+    return angle, _normalize(faces[0].embedding)
