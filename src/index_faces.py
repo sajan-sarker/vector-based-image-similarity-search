@@ -35,7 +35,7 @@ def index_directory(directory: str) -> int:
     vectors = []
     for path in image_paths:
         try:
-            embedding = generate_face_embedding(path)
+            angle, embedding = generate_face_embedding(path)
         except (FileNotFoundError, ValueError) as e:
             print(f"Skipped {path}: {e}")
             continue
@@ -47,7 +47,8 @@ def index_directory(directory: str) -> int:
                 "image_name": os.path.basename(path),
                 "local_path": os.path.abspath(path),
                 "embedding_model": MODEL_PACK,
-                "indexed_at": datetime.now(timezone.utc).isoformat(),
+                "angle": angle,
+                "indexed_at": datetime.now(timezone.utc).isoformat()
             },
         })
         print(f"Embedded {os.path.basename(path)}  ({len(embedding)}-dim)")
