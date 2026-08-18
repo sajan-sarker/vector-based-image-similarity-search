@@ -1,0 +1,8 @@
+insightface
+onnxruntime
+opencv-python
+numpy
+pinecone
+python-dotenv
+Pillow
+opencv-python-headless
