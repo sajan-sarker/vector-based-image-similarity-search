@@ -17,3 +17,17 @@ def search(query_image_path: str, top_k: int = 3):
     )
 
     return angle, response
+
+def find_sim_2_faces(query_image_path: str, target_image_path: str):
+    """ perform similarity search for a local query image against the indexed embeddings in Pinecone. """
+    index = get_index()
+    angle, query_embedding = generate_face_embedding(query_image_path)
+
+    # find the similarity score between the two embeddings
+    response = index.query(
+        vector=query_embedding.tolist(),
+        top_k=1,
+        include_metadata=True,
+        filter={"image_name": {"$eq": target_image_path}},
+    )
+    return angle, response
