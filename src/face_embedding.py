@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 from insightface.app import FaceAnalysis
 from .angle_detection import detect_face_angle
+from .orientation_detection import detect_and_fix_orientation
 
 EMBEDDING_DIMENSION = 512
 MODEL_PACK = "buffalo_l"
@@ -59,6 +60,8 @@ def generate_face_embedding(image_path: str) -> np.ndarray:
     image = cv2.imread(str(path))
     if image is None:
         raise ValueError(f"Could not decode image (unsupported or corrupt file): {path}")
+
+    image, _ = detect_and_fix_orientation(image)
 
     faces = _get_app().get(image)
 
