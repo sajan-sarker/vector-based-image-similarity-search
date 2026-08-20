@@ -1,6 +1,6 @@
 # VectorDB based Face Similarity Search — Local Images + Pinecone
 
-This project keeps the face-processing core (detection → alignment → embedding) from a broader 1:1 face-verification reference pipeline: instead of deciding whether two specific images match, it indexes a local gallery of face images by their embeddings and, given a new query image, returns the most similar indexed faces with a similarity score and metadata for each.
+This project provides a complete pipeline for processing face images, generating embeddings, and storing/querying them in a vector database (Pinecone). It can take a gallery of local face images, correct their orientations, detect the most prominent face, estimate the head pose angle, generate a high-dimensional embedding, and perform fast similarity search.
 
 > **Scope:** every image here is a static file that already exists on local disk.
 
@@ -8,25 +8,43 @@ This project keeps the face-processing core (detection → alignment → embeddi
 
 ## Dataset
 
-- 23 sample images 20 from [Kaggle Human Faces Dataset](https://www.kaggle.com/datasets/kaustubhdhote/human-faces-dataset) and 3 from google.
-- For searching four existing images (from 23 sample) and one new images was used.
+- Sample images can be obtained from the [Kaggle Human Faces Dataset](https://www.kaggle.com/datasets/kaustubhdhote/human-faces-dataset).
+- A downloader script is provided at `scripts/dataset_download.py`.
+- Tested with various images to find similarities between known and queried identities.
 
-## Architecture
+## Architecture & Pipeline
 
-1. **Face Detection:** Identifies the most prominent face in a local image.
-2. **Alignment:** Performs a 5-point landmark similarity transform.
-3. **Embedding:** Generates a 512-dimensional feature vector.
-4. **Vector Database:** L2-normalized vectors are stored and queried in Pinecone using cosine similarity.
+<!-- Image of the pipeline -->
+<div style="text-align: center;">
+    <img src="docs/System%20Diagram.png" alt="Architecture" width="50%" height="50%">
+</div>
 
-## Scope
+The face processing and indexing pipeline is composed of the following sequential steps:
 
-The project focuses on generating embeddings for the most prominent face in an image, estimating the head pose angle (yaw), and indexing these features. It handles 1-to-N matching by finding the top-K most similar faces to a query image.
+1. **Orientation Correction:** Uses a custom ONNX model (`orientation_model_v2_0.9882.onnx`) to detect image rotation (0°, 90°, 180°, 270°) and automatically correct upside-down or sideways images.
+2. **Face Detection:** Identifies the most prominent face in a local image using the RetinaFace-10GF model.
+3. **Alignment & Pose Estimation:** Performs a 5-point landmark similarity transform. Also calculates the 3D head pose (yaw) to classify the face angle as `"straight"`, `"left"`, or `"right"`.
+4. **Embedding Generation:** Generates a 512-dimensional feature vector using an ArcFace-trained ResNet50 model. The embedding is L2-normalized.
+5. **Vector Database:** Vectors and their associated metadata are stored and queried in Pinecone using cosine similarity.
+
+## Codebase Structure
+
+- `src/orientation_detection.py`: Loads the ONNX model to detect and correct image rotation.
+- `src/angle_detection.py`: Determines the face angle (straight/left/right) based on InsightFace's pose array (yaw, pitch, roll).
+- `src/face_embedding.py`: The core wrapper around InsightFace `buffalo_l`. It handles the full flow from detection to returning a 512-dim embedding.
+- `src/pinecone_client.py`: Handles the Pinecone vector database connection and initialization.
+- `src/index_faces.py`: Script to batch process a directory of local images, generate embeddings, and upsert them to Pinecone.
+- `src/search_face.py`: Given a query image, searches the Pinecone index for the top-K most similar faces.
+- `models/`: Stores local machine learning models (e.g., the orientation ONNX model).
+- `scripts/`: Utilities for dataset downloading.
+- `*.ipynb`: Jupyter notebooks (`Experiment.ipynb`, `Orientation_test.ipynb`, `Models_Insight.ipynb`) containing experimentation, testing, and exploratory code.
 
 ## Models & Configuration Summary
 
-- **Model Pack:** InsightFace `buffalo_l`
-- **Detection Model:** RetinaFace-10GF
-- **Recognition Model:** ArcFace-trained ResNet50@WebFace600K
+- **Face Model Pack:** InsightFace `buffalo_l` [Official Site](https://www.insightface.ai/solutions/face-recognition-licensing)
+  - **Detection Model:** RetinaFace-10GF
+  - **Recognition Model:** ArcFace-trained ResNet50@WebFace600K
+- **Orientation Model:** Custom ONNX classifier (`orientation_model_v2_0.9882.onnx`) [HuggingFace Link](https://huggingface.co/DuarteBarbosa/deep-image-orientation-detection)
 - **Execution Provider:** CPUExecutionProvider
 - **Vector Dimension:** 512
 - **Distance Metric:** Cosine Similarity
@@ -51,7 +69,7 @@ Notes:
 
 ---
 
-## Environment & configuration
+## Environment & Configuration
 
 `.env.example` (copy to `.env` and fill in):
 
@@ -87,14 +105,15 @@ When embeddings are upserted into Pinecone, the following metadata is attached t
 - `angle`: Facing direction (`straight`, `left`, `right`)
 - `indexed_at`: UTC timestamp of index insertion
 
-## Running the pipeline (notepad only)
+## Running the pipeline
 
 Currently, the pipeline is executed via the `Experiment.ipynb` Jupyter Notebook.
 
 1. Make sure your virtual environment is active and dependencies are installed.
 2. Verify `.env` is populated with your Pinecone API key.
 3. Run the cells in `Experiment.ipynb` to index the dataset and test similarity queries.
+4. Additional notebooks like `Orientation_test.ipynb` can be used to test the image orientation correction feature independently.
 
 ## Summary & Discussion
 
-This project demonstrates an efficient and privacy-conscious approach to reverse image search for faces. By computing InsightFace embeddings locally and storing only high-dimensional vectors and lightweight metadata in Pinecone, it achieves fast, scalable similarity search without risking raw image exposure.
+This project demonstrates an efficient and privacy-conscious approach to reverse image search for faces. By computing InsightFace embeddings locally (incorporating image rotation correction and head pose estimation) and storing only high-dimensional vectors and lightweight metadata in Pinecone, it achieves fast, scalable similarity search without risking raw image exposure.
